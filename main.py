@@ -3,6 +3,7 @@ import pandas as pd
 import json, os
 from dotenv import load_dotenv
 from typing import Any
+from google import genai
 
 # Fetch all resent content
 # Sort by score
@@ -20,7 +21,11 @@ CONFIG = load_config()
 
 META_ACCESS_TOKEN = os.getenv("META_ACCESS_TOKEN")
 IG_USER_ID = os.getenv("IG_USER_ID")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+client_gemini = genai.Client(
+    api_key=os.getenv("GEMINI_API_KEY")
+    )
 
 N = CONFIG["top_n"]
 
@@ -36,9 +41,33 @@ def fetch( limit : int = 5000 ) -> list[dict[str, Any]]:
     pass # Insta API
 
 def process( data : list[dict[str, Any]] ) -> Any:
-    return {
-        "count" : len(data),
-    }
+    prompt = f"""
+        Ты маркетолог для студии лазерной эпиляции Bloom в Кременчуге.
+
+        Вот список потенциально трендовых Reels/постов:
+
+        {json.dumps(data, ensure_ascii=False, indent=2)}
+
+        Проанализируй их и верни строго JSON на русском языке:
+
+        {{
+        "patterns": [],
+        "ideas": [
+            {{
+            "hook": "",
+            "script": "",
+            "shot_list": [],
+            "caption": "",
+            "call_to_action": ""
+            }}
+        ]
+        }}
+        """
+    response = client_gemini.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt
+    )
+    return response
 
 def main():
     # load config 
@@ -55,6 +84,14 @@ def main():
         json.dump(ret, f, ensure_ascii=False, indent=2)
 
     #DONE
+
+def test():
+    response = client_gemini.models.generate_content(
+        model="gemini-2.5-flash",
+        contents="Привет!"
+    )
+
+    print(response)
 
 if __name__ == "__main__":
     main()
