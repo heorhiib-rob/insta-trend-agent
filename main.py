@@ -47,7 +47,6 @@ def get( endpoint : str, params : dict ):
     
     return resp.json()
 
-
 def get_hashtag_top_media(hashtag: str) -> list[dict[str, Any]]:
     result = []
 
@@ -87,9 +86,24 @@ def get_hashtag_top_media(hashtag: str) -> list[dict[str, Any]]:
 
     return result
 
-
 def fetch( limit : int = N ) -> list[dict[str, Any]]:
-    pass
+    data = {}
+    with open("hashtags.txt", 'r', encoding="utf-8") as f:
+        for line in f:
+            hashtag = line.strip().lstrip("#")
+            if not hashtag:
+                continue
+                
+            posts = get_hashtag_top_media(hashtag)
+
+            if not posts:
+                continue
+
+            posts.sort( key=score )
+
+            data[hashtag] = posts[:limit]
+    
+    return data
 
 def load_prompt( name : str, **kwargs ) -> str:
     text = (PROMPT_DIR / name).read_text(encoding="utf-8")
@@ -109,12 +123,9 @@ def process( data : list[dict[str, Any]] ) -> Any:
 def main():
     # load config 
     # fetch recent
-    content = fetch()
-    # sort and take N best
-    content.sort( key = score, reverse=True )
-    data = content[:N]
+    data = fetch()
 
-    # send to chatGPT
+    # send to Gemini
     ret = process( data )
 
     with open("ideas.json", "w", encoding="utf-8") as f:
