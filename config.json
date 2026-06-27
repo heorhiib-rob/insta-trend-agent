@@ -1,0 +1,6 @@
+{
+    "top_n" : 1,
+    "min_hours_old" : 1,
+    "comment_weight" : 1.3,
+    "prompt" : ""
+}

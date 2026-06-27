@@ -4,6 +4,7 @@ import json, os
 from dotenv import load_dotenv
 from typing import Any
 from google import genai
+from pathlib import Path
 
 # Fetch all resent content
 # Sort by score
@@ -18,7 +19,7 @@ def load_config( path : str = "config.json" ) -> dict[str, Any]:
         return json.load( f )
 
 CONFIG = load_config()
-
+PROMPT_DIR = Path("prompts")
 META_ACCESS_TOKEN = os.getenv("META_ACCESS_TOKEN")
 IG_USER_ID = os.getenv("IG_USER_ID")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -40,29 +41,15 @@ def score( post : dict[str, Any] ) -> float:
 def fetch( limit : int = 5000 ) -> list[dict[str, Any]]:
     pass # Insta API
 
+def load_prompt( name : str, **kwargs ) -> str:
+    text = (PROMPT_DIR / name).read_text(encoding="utf-8")
+    return text.format(**kwargs)
+
 def process( data : list[dict[str, Any]] ) -> Any:
-    prompt = f"""
-        Ты маркетолог для студии лазерной эпиляции Bloom в Кременчуге.
-
-        Вот список потенциально трендовых Reels/постов:
-
-        {json.dumps(data, ensure_ascii=False, indent=2)}
-
-        Проанализируй их и верни строго JSON на русском языке:
-
-        {{
-        "patterns": [],
-        "ideas": [
-            {{
-            "hook": "",
-            "script": "",
-            "shot_list": [],
-            "caption": "",
-            "call_to_action": ""
-            }}
-        ]
-        }}
-        """
+    prompt = load_prompt(
+        "analyze_reels.txt",
+        DATA = json.dump(data, ensure_ascii=False, indent=2))
+    
     response = client_gemini.models.generate_content(
         model="gemini-2.5-flash",
         contents=prompt
