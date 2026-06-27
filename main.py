@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import json, os
+import json, os, requests
 from dotenv import load_dotenv
 from typing import Any
 from google import genai
@@ -29,6 +29,7 @@ client_gemini = genai.Client(
     )
 
 N = CONFIG["top_n"]
+BASE_URL = "https://graph.facebook.com/v23.0/"
 
 def score( post : dict[str, Any] ) -> float:
     likes = post.get("like_count", 0) or 0
@@ -38,8 +39,57 @@ def score( post : dict[str, Any] ) -> float:
 
     return (likes + comms * CONFIG["comment_weight"]) / hours_old
 
-def fetch( limit : int = 5000 ) -> list[dict[str, Any]]:
-    pass # Insta API
+def get( endpoint : str, params : dict ):
+    resp = requests.get( endpoint, params )
+    if resp.status_code != 200:
+        print(f"[META ERROR] {resp.status_code}: {resp.text}")
+        return None
+    
+    return resp.json()
+
+
+def get_hashtag_top_media(hashtag: str) -> list[dict[str, Any]]:
+    result = []
+
+    hash_id_resp = get(
+        endpoint=BASE_URL + "ig_hashtag_search",
+        params={
+            "user_id": IG_USER_ID,
+            "q": hashtag,
+            "access_token": META_ACCESS_TOKEN,
+        }
+    )
+
+    if hash_id_resp is None:
+        return result
+
+    ids = hash_id_resp.get("data", [])
+    if not ids:
+        return result
+
+    hash_id = ids[0]["id"]
+
+    posts_json = get(
+        endpoint=BASE_URL + f"{hash_id}/top_media",
+        params={
+            "user_id": IG_USER_ID,
+            "fields": "id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count",
+            "access_token": META_ACCESS_TOKEN,
+        }
+    )
+
+    if posts_json is None:
+        return result
+
+    for post in posts_json.get("data", []):
+        post["source_hashtag"] = hashtag
+        result.append(post)
+
+    return result
+
+
+def fetch( limit : int = N ) -> list[dict[str, Any]]:
+    pass
 
 def load_prompt( name : str, **kwargs ) -> str:
     text = (PROMPT_DIR / name).read_text(encoding="utf-8")
